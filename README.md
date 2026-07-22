@@ -63,7 +63,7 @@ mental-approach/
 ```
 浏览器 ──→ Nginx (80)
              ├── /*.html, /static/* ──→ 静态文件（Nginx 直接返回）
-             └── /api/*              ──→ 反向代理 → FastAPI (127.0.0.1:8765)
+             └── /api/*              ──→ 反向代理 → FastAPI (127.0.0.1:5172)
 ```
 
 - Nginx 负责静态资源响应、Gzip 压缩、缓存控制、安全头部
@@ -114,10 +114,10 @@ python extract_pdfs.py
 python server.py
 
 # 或指定 host/port
-uvicorn server:app --host 0.0.0.0 --port 8765
+uvicorn server:app --host 0.0.0.0 --port 5172
 ```
 
-访问 **http://localhost:8765**
+访问 **http://localhost:5172**
 
 ## API 接口
 
@@ -218,7 +218,7 @@ sudo systemctl start mental-approach
 python server.py
 ```
 
-访问 `http://localhost:8765`
+访问 `http://localhost:5172`
 
 ### 方式三：Docker 部署
 
@@ -227,10 +227,10 @@ python server.py
 docker build -t mental-approach .
 
 # 运行（开发模式，含静态文件）
-docker run -d -p 8765:8765 mental-approach
+docker run -d -p 5172:5172 mental-approach
 
 # 运行（生产模式，配合 Nginx）
-docker run -d -p 127.0.0.1:8765:8765 -e PRODUCTION=1 mental-approach
+docker run -d -p 127.0.0.1:5172:5172 -e PRODUCTION=1 mental-approach
 ```
 
 Dockerfile 示例：
@@ -242,7 +242,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN python extract_pdfs.py
-EXPOSE 8765
+EXPOSE 5172
 CMD ["python", "server.py"]
 ```
 
@@ -264,5 +264,5 @@ CMD ["python", "server.py"]
 4. **搜索索引** — 索引在服务启动时全量构建于内存中，约 50 万字内容，内存占用约 50-80 MB
 5. **中文分词** — 当前使用 N-gram（2-4 字）分词方案，对于纯中文场景效果良好，不支持拼音搜索
 6. **并发** — FastAPI 默认单进程，可通过 `uvicorn --workers N` 开启多 worker（注意索引会在每个 worker 中独立构建）
-7. **端口** — 默认 8765，可在 `server.py` 底部修改
+7. **端口** — 默认 5172，可通过环境变量 `API_PORT` 修改，或在 `server.py` 底部修改
 8. **Python 版本** — 建议 3.9+，使用 `asynccontextmanager` 需要 3.7+

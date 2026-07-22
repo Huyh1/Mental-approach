@@ -22,7 +22,7 @@ import uvicorn
 # 命令行参数
 PRODUCTION = "--production" in sys.argv or os.environ.get("PRODUCTION", "").lower() in ("1", "true", "yes")
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")
-API_PORT = int(os.environ.get("API_PORT", "8765"))
+API_PORT = int(os.environ.get("API_PORT", "5172"))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

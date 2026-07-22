@@ -67,7 +67,7 @@ start_server() {
         export PRODUCTION=1
         nohup python3 server.py --production > "$LOG_FILE" 2>&1 &
         echo $! > "$PID_FILE"
-        echo -e "API 地址: ${GREEN}http://127.0.0.1:8765${NC}"
+        echo -e "API 地址: ${GREEN}http://127.0.0.1:5172${NC}"
         echo -e "Nginx 需配置反向代理到此地址"
         echo -e "日志: $LOG_FILE"
     else
@@ -75,7 +75,7 @@ start_server() {
         echo -e "${GREEN}启动开发模式 (含静态文件)${NC}"
         nohup python3 server.py > "$LOG_FILE" 2>&1 &
         echo $! > "$PID_FILE"
-        echo -e "访问地址: ${GREEN}http://localhost:8765${NC}"
+        echo -e "访问地址: ${GREEN}http://localhost:5172${NC}"
         echo -e "日志: $LOG_FILE"
     fi
 
