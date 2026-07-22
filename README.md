@@ -35,6 +35,9 @@
 mental-approach/
 ├── extract_pdfs.py          # PDF 提取脚本（数据预处理）
 ├── server.py                # FastAPI 后端服务
+├── nginx.conf               # Nginx 生产环境配置
+├── start.sh                 # 一键启动/停止脚本
+├── requirements.txt         # Python 依赖
 ├── data/
 │   └── chapters.json        # 提取后的结构化数据
 ├── static/
@@ -49,10 +52,22 @@ mental-approach/
 
 | 层 | 技术 | 说明 |
 |----|------|------|
+| Web 服务器 | **Nginx** | 静态文件服务 + 反向代理 |
 | 后端 | Python 3.9+ / FastAPI / uvicorn | RESTful API |
 | 前端 | Vanilla HTML/CSS/JS | 零依赖 SPA |
 | PDF 解析 | pypdf | 文本提取 |
 | 搜索 | 自建倒排索引 + N-gram 分词 | 轻量中文全文检索 |
+
+### 部署架构
+
+```
+浏览器 ──→ Nginx (80)
+             ├── /*.html, /static/* ──→ 静态文件（Nginx 直接返回）
+             └── /api/*              ──→ 反向代理 → FastAPI (127.0.0.1:8765)
+```
+
+- Nginx 负责静态资源响应、Gzip 压缩、缓存控制、安全头部
+- FastAPI 仅处理 API 逻辑，绑定 127.0.0.1 不对外暴露
 
 ## 快速开始
 
@@ -118,24 +133,57 @@ uvicorn server:app --host 0.0.0.0 --port 8765
 
 ## 部署
 
-### 本地 / 内网部署
+### 方式一：Nginx 生产部署（推荐）
+
+**1. 部署项目文件**
 
 ```bash
-# 后台运行
-nohup python server.py > server.log 2>&1 &
-
-# 或使用 screen / tmux
-screen -S mental
-python server.py
-# Ctrl+A D 分离
+# 将项目部署到服务器
+scp -r mental-approach/ user@server:/opt/mental-approach
 ```
 
-### 生产环境建议
+**2. 安装依赖 & 提取数据**
 
-1. **使用 systemd 管理进程**（Linux）
+```bash
+cd /opt/mental-approach
+pip install -r requirements.txt
+python extract_pdfs.py
+```
 
-```ini
-# /etc/systemd/system/mental-approach.service
+**3. 启动后端 API（生产模式）**
+
+```bash
+# 使用启动脚本
+./start.sh production
+
+# 或手动启动（仅监听 127.0.0.1，不对外暴露）
+PRODUCTION=1 python server.py
+```
+
+**4. 配置 Nginx**
+
+```bash
+# 复制配置文件
+sudo cp nginx.conf /etc/nginx/sites-available/mental-approach
+
+# 启用站点
+sudo ln -s /etc/nginx/sites-available/mental-approach /etc/nginx/sites-enabled/
+
+# 如有需要，修改 nginx.conf 中的 root 路径和 server_name
+
+# 测试配置
+sudo nginx -t
+
+# 重载 Nginx
+sudo nginx -s reload
+```
+
+访问 `http://your-server-ip` 即可使用。
+
+**5. 设置 systemd 守护（可选）**
+
+```bash
+sudo tee /etc/systemd/system/mental-approach.service << 'EOF'
 [Unit]
 Description=格物心法知识库
 After=network.target
@@ -144,34 +192,48 @@ After=network.target
 Type=simple
 User=www-data
 WorkingDirectory=/opt/mental-approach
-ExecStart=/usr/bin/python3 server.py
+Environment=PRODUCTION=1
+ExecStart=/usr/bin/python3 server.py --production
 Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-```
+EOF
 
-```bash
+sudo systemctl daemon-reload
 sudo systemctl enable mental-approach
 sudo systemctl start mental-approach
 ```
 
-2. **使用 Nginx 反向代理**
+### 方式二：开发模式（单命令启动）
 
-```nginx
-server {
-    listen 80;
-    server_name mental.your-domain.com;
+无需 Nginx，FastAPI 直接服务静态文件：
 
-    location / {
-        proxy_pass http://127.0.0.1:8765;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
+```bash
+# 方式 A：启动脚本
+./start.sh
+
+# 方式 B：直接运行
+python server.py
 ```
 
-3. **Docker 部署**
+访问 `http://localhost:8765`
+
+### 方式三：Docker 部署
+
+```bash
+# 构建
+docker build -t mental-approach .
+
+# 运行（开发模式，含静态文件）
+docker run -d -p 8765:8765 mental-approach
+
+# 运行（生产模式，配合 Nginx）
+docker run -d -p 127.0.0.1:8765:8765 -e PRODUCTION=1 mental-approach
+```
+
+Dockerfile 示例：
 
 ```dockerfile
 FROM python:3.11-slim
@@ -184,9 +246,14 @@ EXPOSE 8765
 CMD ["python", "server.py"]
 ```
 
+### start.sh 命令参考
+
 ```bash
-docker build -t mental-approach .
-docker run -d -p 8765:8765 mental-approach
+./start.sh              # 开发模式启动
+./start.sh production   # 生产模式启动（仅 API）
+./start.sh stop         # 停止服务
+./start.sh restart      # 重启服务
+./start.sh status       # 查看状态
 ```
 
 ## 注意事项

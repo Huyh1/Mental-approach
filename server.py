@@ -1,10 +1,15 @@
 """
 格物心法 - 知识库后端API服务
 功能：全文检索、内容浏览、关键信息提取、分析总结
+
+运行模式：
+  开发模式（自服务静态文件）: python server.py
+  生产模式（仅 API，配合 Nginx）: python server.py --production
 """
 import json
 import re
 import os
+import sys
 from collections import Counter
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -14,13 +19,18 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import uvicorn
 
+# 命令行参数
+PRODUCTION = "--production" in sys.argv or os.environ.get("PRODUCTION", "").lower() in ("1", "true", "yes")
+API_HOST = os.environ.get("API_HOST", "127.0.0.1")
+API_PORT = int(os.environ.get("API_PORT", "8765"))
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not chapters_data:
         load_data()
     yield
 
-app = FastAPI(title="格物心法 知识库", version="1.0", lifespan=lifespan)
+app = FastAPI(title="格物心法 知识库", version="1.1", lifespan=lifespan)
 
 # 加载数据
 DATA_FILE = "data/chapters.json"
@@ -363,13 +373,16 @@ def get_stats():
         "by_type": dict(type_counts),
     }
 
-# 静态文件服务
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# 静态文件服务（仅开发模式）
+if not PRODUCTION:
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/")
-def serve_frontend():
-    return FileResponse("static/index.html")
+    @app.get("/")
+    def serve_frontend():
+        return FileResponse("static/index.html")
 
 if __name__ == "__main__":
-    print("启动 格物心法 知识库服务...")
-    uvicorn.run(app, host="0.0.0.0", port=8765)
+    mode = "生产模式 (仅 API)" if PRODUCTION else "开发模式 (含静态文件)"
+    print(f"启动 格物心法 知识库服务 [{mode}]")
+    print(f"监听: {API_HOST}:{API_PORT}")
+    uvicorn.run(app, host=API_HOST, port=API_PORT)

@@ -1,0 +1,24 @@
+# 数据文件（50万字的 JSON，由 extract_pdfs.py 生成）
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 日志
+*.log
+server.log
+
+# PID
+.server.pid
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
